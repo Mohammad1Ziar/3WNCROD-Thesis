@@ -1,0 +1,4 @@
+subset,objects,num_lambdas,total_sweep_time_sec,avg_time_per_lambda_sec
+C1,307,20,0.23,0.0117
+C2,229,20,0.2,0.0099
+C3,375,20,0.34,0.017

@@ -1,0 +1,4 @@
+subset,objects,num_lambdas,scale_precomp_time_sec,total_sweep_time_sec,avg_time_per_lambda_sec
+M1,1649,20,6.775,2.76,0.1382
+M2,3218,20,7.038,6.64,0.3321
+M3,1211,20,7.306,1.63,0.0816

@@ -1,0 +1,4 @@
+subset,num_features,total_search_time_sec,avg_time_per_feature_sec
+T1,6,47.87,7.979
+T2,6,46.26,7.709
+T3,6,42.49,7.082

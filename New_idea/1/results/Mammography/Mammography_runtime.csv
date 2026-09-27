@@ -1,0 +1,4 @@
+subset,num_features,total_search_time_sec,avg_time_per_feature_sec
+MA1,6,937.17,156.195
+MA2,6,866.66,144.443
+MA3,6,722.99,120.498

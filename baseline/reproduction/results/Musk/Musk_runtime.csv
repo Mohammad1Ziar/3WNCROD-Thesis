@@ -1,0 +1,4 @@
+subset,objects,num_lambdas,total_sweep_time_sec,avg_time_per_lambda_sec
+MU1,2963,20,31.27,1.5634
+MU2,2348,20,28.24,1.4122
+MU3,2260,20,29.94,1.4968
