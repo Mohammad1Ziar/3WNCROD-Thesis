@@ -1,4 +1,0 @@
-dataset_row_index,anomaly_score,score_rank,true_label
-693,0.404373988214587,7,1
-72,0.3885554619284964,9,1
-144,0.38650130582251296,10,1

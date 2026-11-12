@@ -1,161 +1,208 @@
-# 3WNCROD+ : Advanced Three-Way Neighborhood Characteristic Region Outlier Detection
+# 3WNCROD / 3WNCROD+ Thesis Research Repository
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
-[![Status](https://img.shields.io/badge/status-Thesis%20Research%20Archive-success.svg)]()
-[![Paper Reference](https://img.shields.io/badge/IEEE%20TKDE-2024-informational.svg)](https://doi.org/10.1109/TKDE.2023.3312108)
+> This repository is an active research project created for master’s thesis work. It is continuously evolving, and its folder structure, scripts, and experimental ideas are expected to change as the study progresses.
 
-This repository hosts the comprehensive experimental codebase, mathematical treatises, datasets, and benchmark results for the **3WNCROD+** thesis project. It advances the state of the art in neighborhood rough-set and Three-Way Decision (3WD) anomaly detection, building upon the foundational paper:
+## 1) Project Overview
 
-> **Zhang, X., Yuan, Z., & Miao, D.** *"Outlier Detection Using Three-Way Neighborhood Characteristic Regions and Corresponding Fusion Measurement,"* **IEEE Transactions on Knowledge and Data Engineering (TKDE)**, vol. 36, no. 5, pp. 2082–2095, May 2024. [DOI: 10.1109/TKDE.2023.3312108](https://doi.org/10.1109/TKDE.2023.3312108).
+This repository contains the implementation, benchmarking, and experimental code related to outlier detection research based on 3WNCROD and its extended variants. The work focuses on detecting anomalous samples in numerical, categorical, and mixed-type datasets using neighborhood-based and decision-theoretic approaches.
 
----
+The project is intended as a research workspace rather than a final packaged library. It is used to run experiments, test hypotheses, compare variants, and generate evidence for the thesis.
 
-## 🔬 Project Overview & Key Contributions
+The current objectives include:
 
-While the baseline **3WNCROD** algorithm introduced multiple neighborhood outlier factors (MNOF) based on neighborhood characteristic regions (NEB, NPB, POS), it relied on a single global granulation hyperparameter ($\lambda$), computationally intensive pairwise distance calculations ($O(n^2)$), and standard parametric scale measures.
-
-**3WNCROD+** addresses these limitations across three primary dimensions:
-
-1. **Feature-Wise Granulation ($\lambda_j$)**: Replaces the single uniform $\lambda$ with decoupled, attribute-specific neighborhood scales to handle multi-modal and heteroscedastic feature spaces.
-2. **High-Performance Vectorization (~89× Speedup)**: Implements Single-Attribute Neighborhood Characterization (SANC) sorting ($O(n \log n)$), BLAS matrix operations, and blocked `uint8` counters to achieve drastic runtime reductions while guaranteeing bit-for-bit mathematical equivalence with the original baseline.
-3. **Four-Generation Closed-Form Mathematical Evolution**:
-   - **Gen 1 (Robust Granulation & Subspace Augmentation)**: Introduces robust scale estimators (MADN, IQR/1.34), Silverman AMISE bandwidth rules, synthetic subspace attributes via deflationary power iteration (SPE), and discriminative approximation weights $\gamma_{c_j}(X)$.
-   - **Gen 2 (Decoupled Multi-Scale & Unsupervised Weighting)**: Resolves distribution skewness via asymmetric half-spread dispersion ($IQR_{eff}$), rate-calibrated cross-attribute voting, and unsupervised coefficient-of-variation feature weighting.
-   - **Gen 3 (Copula Subspace Banks & Dual-Dispersion)**: Employs Kendall's $\tau$ and Gaussian copula mutual information ($\Delta_{jk}$) to detect nonlinear dependencies, dual-dispersion statistics, smoothed IDF-style region rarity weights, and dyadic multi-scale granulation.
-   - **Gen 4 / 3WNCROD-IV (Topological Stability Principle)**: Solves AMISE neighborhood collapse with the $k^*$-Stable Radius law (Eq. 8†), variance-explained gated subspace augmentation ($\eta_r \ge 0.60$), effective-dimension adaptive NOM thresholds (Eq. 11†), and codomain-restored calibrated discriminative weights (Eq. 10†).
+- reviewing and implementing the base 3WNCROD method
+- developing optimized and hybrid variants
+- evaluating performance on standard anomaly detection datasets
+- comparing models using ROC-AUC and Average Precision (AP)
+- creating a reusable code and data foundation for thesis work
 
 ---
 
-## 📊 Benchmark Results Summary
+## 2) Current Repository Status
 
-Experiments were conducted on multiple established outlier detection benchmark subsets (e.g., A1–A3 for Annthyroid, MA1–MA3 for Mammography, G1–G3 for German, etc.). Below is a summary comparison between baseline **3WNCROD** and **3WNCROD+** (full matrix in `result-all.png`):
+The repository is structured as an active research codebase with multiple layers of work:
 
-| Dataset Subset | Baseline ROC-AUC | 3WNCROD+ ROC-AUC | Baseline AP | 3WNCROD+ AP |
-|:---|:---:|:---:|:---:|:---:|
-| **Annthyroid (A1)** | 0.732 | **0.898** | 0.437 | **0.704** |
-| **Annthyroid (A2)** | 0.692 | **0.910** | 0.427 | **0.678** |
-| **Annthyroid (A3)** | 0.775 | **0.945** | 0.278 | **0.526** |
-| **German (G1)** | 0.987 | **0.989** | 0.561 | **0.570** |
-| **German (G2)** | 0.986 | **0.990** | 0.543 | **0.620** |
-| **German (G3)** | 0.996 | **0.998** | 0.501 | **0.715** |
-| **Mammography (MA1)** | 0.893 | **0.920** | 0.355 | **0.565** |
-| **Mammography (MA2)** | 0.775 | **0.832** | 0.073 | **0.122** |
-| **Mammography (MA3)** | 0.788 | **0.799** | 0.187 | **0.318** |
-| **Thyroid (TH1–TH3)** | 0.985–0.992 | **0.998** | 0.716–0.852 | **High/Stable** |
-| **Lymphography / Musk / WDBC** | **1.000** | **1.000** | **1.000** | **1.000** |
+1. baseline reference code and benchmark data
+2. dataset loading and subset definitions
+3. evaluator modules for measuring performance
+4. experimental scripts for new ideas and optimization attempts
+5. results and intermediate outputs for analysis
 
-*Note: Average Precision (AP / PR-AUC) is the primary metric given the extreme class imbalance inherent to anomaly detection.*
+This means the repository mixes reference materials, exploratory code, active experiments, and current development artifacts in one place.
 
 ---
 
-## 📁 Repository Structure
+## 3) Repository Structure
 
 ```text
-├── 1. 3WNCROD/                        # Baseline implementation & reference paper
-│   ├── 1. Perfect Implementation/      # Clean reference notebooks & MA benchmarks
-│   ├── 3WNCROD-main/                  # Original MATLAB/Python package from authors
-│   └── 3WNCROD-2024.pdf               # Reference TKDE publication PDF
-│
-├── 2. 3WNCROD+/                       # Research branch: extensions & algorithmic evolution
-│   └── 1. Implementation/
-│       ├── 1st - FeatureWise/         # Feature-wise lambda tuning across benchmark datasets
-│       ├── 2nd -  Gen 1/              # Generation 1 implementations & exploratory notebooks
-│       ├── 3rd - Running Time Optimised/ # ~89x faster vectorized drop-in replacement (SANC)
-│       ├── 4th - Gen 2/               # Generation 2 multi-scale & voting experiments
-│       ├── 5th - Gen 3/               # Generation 3 copula subspace & dual-dispersion runs
-│       ├── 6th - FeatureWise + Gen 1/ # Combined feature-wise & Gen 1 hybrid trials
-│       ├── 7th - Gen 4/               # Gen 4 (3WNCROD-IV) reference implementations
-│       └── Gen's/                     # Consolidated scripts & notebooks (Gen 1-3 & Gen 4 treatise)
-│
-├── 3.Datasets/                        # Curated benchmark datasets (.csv, .mat, .xls)
-│   ├── annthyroid                     # Annthyroid dataset
-│   ├── creditA                        # Credit Approval dataset
-│   ├── german                         # German Credit dataset
-│   ├── heart270                       # Statlog Heart dataset
-│   ├── lymphography                   # Lymphography dataset
-│   ├── mammography                    # Mammography dataset (MA1, MA2, MA3 subsets)
-│   ├── mushroom                       # Mushroom nominal dataset
-│   ├── musk                           # Musk (Clean2) dataset
-│   ├── thyroid                        # Standard Thyroid dataset
-│   └── wdbc                           # Wisconsin Diagnostic Breast Cancer dataset
-│
-├── 4. Idea's/                         # Formal mathematical treatises & design specs
-│   ├── Gen 1.md                       # Treatise I: Closed-Form Enhancements
-│   ├── Gen 2.md                       # Treatise II: Multi-Scale Granulation & Calibrated Voting
-│   └── Gen 3.md                       # Treatise III: Copula Subspace Banks & Novel Mechanisms
-│
-├── result-all.png                     # Benchmark comparison table (3WNCROD vs. 3WNCROD+)
-└── README.md                          # Repository documentation
+.
+├── README.md                          # Main project documentation
+├── main.py                            # Placeholder / development entry point
+├── result-all.png                     # Result-summary visualization
+├── verify_subsets.py                  # Checks subset definitions against benchmark expectations
+├── test_trash.py                      # Temporary experimental file
+├── baseline/                          # Reference implementation and benchmark datasets
+│   ├── Code/
+│   ├── datasets/
+│   ├── papers/
+│   └── reproduction/
+├── data_loaders/                      # Data loading and subset registration logic
+│   ├── base.py
+│   ├── criteria.py
+│   ├── loader.py
+│   └── __init__.py
+├── evaluators/                        # Evaluation metrics and scoring logic
+│   ├── metrics.py
+│   └── __init__.py
+├── New_idea/                          # New ideas and experimental benchmark runs
+│   ├── 1/
+│   └── 2/
+├── utils/                             # Diagnostics and helper scripts
+│   └── 1_initial_diagnostics/
+├── 2. 3WNCROD+/                       # Main experimental area with multiple algorithm variants
+│   ├── 1st - FeatureWise/
+│   ├── 2nd - Gen 1/
+│   ├── 3rd - Running Time Optimised/
+│   ├── 4th - Gen 2/
+│   ├── 5th - Gen 3/
+│   ├── 6th - FeatureWise + Gen 1/
+│   ├── 7th - Gen 4/
+│   └── Gen's/
+└── .venv/                             # Local Python environment
 ```
+
+> Note: some folders contain spaces in their names, so quoted paths are recommended when running scripts from the shell.
 
 ---
 
-## 🚀 Getting Started
+## 4) Key Project Areas
 
-### 1. Environment Setup
+### 4.1) baseline
 
-Clone the repository and activate a Python 3.10+ virtual environment:
+This folder contains the reference implementation and benchmark datasets used as the starting point for comparison and validation.
+
+It includes:
+
+- reference code for the original method
+- datasets used in experiments
+- paper-related outputs and reproduction scripts
+
+### 4.2) data_loaders
+
+This part of the repository is responsible for loading the benchmark datasets and matching them to the correct predefined subset criteria.
+
+Main files:
+
+- `data_loaders/criteria.py` — defines benchmark subset families and expected counts
+- `data_loaders/loader.py` — loads the dataset subset for each experiment
+
+### 4.3) evaluators
+
+This part implements the model evaluation logic, primarily focusing on:
+
+- ROC-AUC
+- Average Precision (AP)
+- outlier ranking and anomaly identification
+
+### 4.4) New_idea
+
+This directory stores the newer experimental directions, including hybrid and optimized versions of the method.
+
+Examples include:
+
+- `New_idea/1/`
+- `New_idea/2/run_hybrid_benchmark.py`
+- `New_idea/2/wncrod_hybrid.py`
+
+### 4.5) 2. 3WNCROD+
+
+This is the main research and experimentation area of the project. It contains multiple versions and generations of the method, such as:
+
+- FeatureWise
+- Gen 1
+- Gen 2
+- Gen 3
+- Gen 4
+- runtime-optimized implementations
+
+This layout reflects the fact that the repository is still in an active thesis-development phase and not yet a finalized stable release.
+
+---
+
+## 5) Common Setup and Execution
+
+### 5.1) Create a virtual environment
 
 ```bash
-git clone https://github.com/Mohammad1Ziar/3WNCROD-Thesis.git
-cd 3WNCROD-Thesis
-
-# Create and activate virtual environment
 python3 -m venv .venv
 source .venv/bin/activate
-
-# Install core scientific dependencies
-pip install numpy scipy pandas scikit-learn matplotlib jupyter
 ```
 
-### 2. Running Baseline vs. Optimized 3WNCROD
+### 5.2) Install dependencies
 
-To test the **~89× faster drop-in replacement** against the original implementation:
-
-```python
-# Import the optimized function
-import sys
-sys.path.append("2. 3WNCROD+/1. Implementation/3rd - Running Time Optimised")
-from wncrod_optimized import WNCROD
-
-# Execute outlier scoring (bit-for-bit identical to baseline)
-# out_scores = WNCROD(data, X_tem, lammda)
+```bash
+pip install numpy pandas scipy scikit-learn matplotlib jupyter
 ```
 
-### 3. Running Fourth-Generation (3WNCROD-IV) Experiments
+### 5.3) Validate the benchmark subsets
 
-To run the complete parameter-free, topologically-stabilized implementation:
+```bash
+python verify_subsets.py
+```
+
+### 5.4) Run the experimental benchmark pipeline
+
+```bash
+python "New_idea/2/run_hybrid_benchmark.py"
+```
+
+### 5.5) Run scripts inside folders with spaces in their names
 
 ```bash
 python "2. 3WNCROD+/1. Implementation/7th - Gen 4/3WNCROD_IV_Implementation-1.py"
 ```
 
-You can also explore and interact with the experiments using Jupyter:
+---
 
-```bash
-jupyter notebook
-```
-Navigate to `2. 3WNCROD+/1. Implementation/Gen's/` to inspect `Gen 1.ipynb`, `Gen 2.ipynb`, or `Gen 3.ipynb`.
+## 6) Research Workflow
+
+The normal workflow for this project is:
+
+1. define a new hypothesis or variant
+2. run experiments on benchmark datasets
+3. compare results with the baseline or earlier versions
+4. inspect metric values, failures, and runtime behavior
+5. refine the implementation and repeat
+
+Because of this workflow, the repository is expected to evolve continuously while the thesis work develops.
 
 ---
 
-## 📖 Citation & Acknowledgments
+## 7) Main Reference
 
-If you find this repository, code, or experimental methodology useful in your academic research, please cite the primary literature:
+The base algorithm used in this project is derived from the following paper:
 
-```bibtex
-@article{zhang2024outlier,
-  title={Outlier Detection Using Three-Way Neighborhood Characteristic Regions and Corresponding Fusion Measurement},
-  author={Zhang, Xianyong and Yuan, Zhong and Miao, Duoqian},
-  journal={IEEE Transactions on Knowledge and Data Engineering},
-  volume={36},
-  number={5},
-  pages={2082--2095},
-  year={2024},
-  publisher={IEEE},
-  doi={10.1109/TKDE.2023.3312108}
-}
-```
+> Zhang, X., Yuan, Z., and Miao, D.  
+> "Outlier Detection Using Three-Way Neighborhood Characteristic Regions and Corresponding Fusion Measurement"  
+> IEEE Transactions on Knowledge and Data Engineering, 2024.
+
+The `baseline/` directory and the `result-all.png` file are the primary reference points for benchmark context and comparison outputs.
 
 ---
-*Maintained as part of the 3WNCROD+ Graduate Thesis Archive by [Mohammad Ziar](https://github.com/Mohammad1Ziar).*
+
+## 8) Important Notes
+
+- This is a thesis research repository, not a final packaged software release.
+- Many folders and files are exploratory or experimental by design.
+- Before deleting or renaming files, confirm whether they are still used in active experiments.
+- Always use quoted paths when executing files under directories with spaces in their names.
+- For documentation and comparison, use the versions under `baseline/` and `New_idea/` as a reference.
+
+---
+
+## 9) Summary
+
+This repository is a live research environment for developing and testing outlier-detection methods based on 3WNCROD and its variants. It combines reference code, benchmark datasets, active experimental implementations, and thesis-driven exploration in a single workspace.
+
+If you are beginning work on this project, start with `baseline/`, `data_loaders/`, and `New_idea/2/` to understand the current experimental structure and workflow.
+

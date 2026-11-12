@@ -264,7 +264,7 @@ SUBSET_REGISTRY: Dict[str, Dict[str, Any]] = {
     },
 
     # -------------------- 9. Thyroid (T1, T2, T3) ---------------------
-    "T1": {
+    "TH1": {
         "family": "Thyroid",
         "csv_file": "thyroidori.csv",
         "mat_file": "thyroid.mat",
@@ -274,7 +274,7 @@ SUBSET_REGISTRY: Dict[str, Dict[str, Any]] = {
         "expected_objects": 3766,
         "expected_outliers": 87,
     },
-    "T2": {
+    "TH2": {
         "family": "Thyroid",
         "csv_file": "thyroidori.csv",
         "mat_file": "thyroid.mat",
@@ -284,7 +284,7 @@ SUBSET_REGISTRY: Dict[str, Dict[str, Any]] = {
         "expected_objects": 3676,
         "expected_outliers": 93,
     },
-    "T3": {
+    "TH3": {
         "family": "Thyroid",
         "csv_file": "thyroidori.csv",
         "mat_file": "thyroid.mat",
