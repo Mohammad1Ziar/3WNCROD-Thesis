@@ -8,7 +8,7 @@ Executes baseline algorithm on all 30 subsets:
 - Outputs 2 comparison tables in CSV and Markdown format:
     Table 1: Performance Comparison (Best lambda AP, Best AP, Paper AP, Best lambda ROC, Best ROC, Paper ROC, Average)
     Table 2: Running Time Comparison (Time Best AP, Time Best ROC, Full Search Time AP, Full Search Time ROC, Paper Time)
-- Target directory: reslut/1_reproduction
+- Target directory: result/1_reproduction
 """
 
 import os
@@ -36,7 +36,7 @@ from data_loaders.criteria import SUBSET_REGISTRY
 from evaluators import evaluate_predictions
 
 # Destination results directory requested by user
-BASE_RESULTS_DIR = PROJECT_ROOT / "reslut" / "1_reproduction"
+BASE_RESULTS_DIR = PROJECT_ROOT / "result" / "1_reproduction"
 BASE_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 CHARTS_DIR = BASE_RESULTS_DIR / "charts"
 CHARTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -252,44 +252,47 @@ def WNCROD_optimized(data: np.ndarray, X_tem: np.ndarray, lammda: float, block_s
 # Plotting Utilities
 # ===========================================================================
 
-def generate_subset_plots(sub_name: str, lambdas: list, aucs: list, aps: list, out_dir: Path):
-    """
-    Generates two dedicated charts for a numerical subset:
-    1. AP vs Lambda
-    2. ROC-AUC vs Lambda
-    """
+def generate_group_plots(group_name: str, group_subsets: list, sweep_data: dict, out_dir: Path):
+    """Plot all three subsets of one family in a single merged AP figure."""
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # 1. AP vs Lambda
-    plt.figure(figsize=(7, 4.5))
-    plt.plot(lambdas, aps, marker="o", color="#1f77b4", linewidth=2.0, markersize=5, label=f"{sub_name} AP")
-    best_idx_ap = int(np.argmax(aps))
-    plt.plot(lambdas[best_idx_ap], aps[best_idx_ap], marker="*", color="#d62728", markersize=12,
-             label=f"Best AP: {aps[best_idx_ap]:.4f} (λ={lambdas[best_idx_ap]})")
-    plt.title(f"Average Precision (AP) vs. λ — {sub_name}", fontsize=13, fontweight="bold")
+    colors = ["#1f77b4", "#ff7f0e", "#2ca02c"]
+    markers = ["o", "s", "^"]
+
+    plt.figure(figsize=(8, 5))
+    for i, sub_name in enumerate(group_subsets):
+        vals = sweep_data[sub_name]["aps"]
+        plt.plot(DEFAULT_LAMBDAS, vals, marker=markers[i], linewidth=2.0, markersize=5, color=colors[i], label=sub_name)
+    plt.title(f"Average Precision (AP) vs. λ — {group_name}", fontsize=13, fontweight="bold")
     plt.xlabel("λ (Radius Adjustment Parameter)", fontsize=11)
     plt.ylabel("Average Precision (AP)", fontsize=11)
-    plt.xticks(lambdas, rotation=45, fontsize=8)
+    plt.xticks(DEFAULT_LAMBDAS, rotation=45, fontsize=8)
     plt.grid(True, linestyle="--", alpha=0.6)
     plt.legend(loc="best", fontsize=10)
     plt.tight_layout()
-    plt.savefig(out_dir / f"{sub_name}_AP_vs_lambda.png", dpi=300)
+    plt.savefig(out_dir / f"{group_name}_AP_vs_lambda.png", dpi=300)
     plt.close()
 
-    # 2. ROC-AUC vs Lambda
-    plt.figure(figsize=(7, 4.5))
-    plt.plot(lambdas, aucs, marker="s", color="#2ca02c", linewidth=2.0, markersize=5, label=f"{sub_name} ROC-AUC")
-    best_idx_auc = int(np.argmax(aucs))
-    plt.plot(lambdas[best_idx_auc], aucs[best_idx_auc], marker="*", color="#d62728", markersize=12,
-             label=f"Best ROC: {aucs[best_idx_auc]:.4f} (λ={lambdas[best_idx_auc]})")
-    plt.title(f"ROC-AUC vs. λ — {sub_name}", fontsize=13, fontweight="bold")
+
+def generate_group_roc_plots(group_name: str, group_subsets: list, sweep_data: dict, out_dir: Path):
+    """Plot all three subsets of one family in a single merged ROC-AUC figure."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    colors = ["#1f77b4", "#ff7f0e", "#2ca02c"]
+    markers = ["o", "s", "^"]
+
+    plt.figure(figsize=(8, 5))
+    for i, sub_name in enumerate(group_subsets):
+        vals = sweep_data[sub_name]["aucs"]
+        plt.plot(DEFAULT_LAMBDAS, vals, marker=markers[i], linewidth=2.0, markersize=5, color=colors[i], label=sub_name)
+    plt.title(f"ROC-AUC vs. λ — {group_name}", fontsize=13, fontweight="bold")
     plt.xlabel("λ (Radius Adjustment Parameter)", fontsize=11)
     plt.ylabel("ROC-AUC", fontsize=11)
-    plt.xticks(lambdas, rotation=45, fontsize=8)
+    plt.xticks(DEFAULT_LAMBDAS, rotation=45, fontsize=8)
     plt.grid(True, linestyle="--", alpha=0.6)
     plt.legend(loc="best", fontsize=10)
     plt.tight_layout()
-    plt.savefig(out_dir / f"{sub_name}_ROC_AUC_vs_lambda.png", dpi=300)
+    plt.savefig(out_dir / f"{group_name}_ROC_AUC_vs_lambda.png", dpi=300)
     plt.close()
 
 
@@ -309,21 +312,19 @@ def run_baseline_pipeline():
 
     table1_rows = []
     table2_rows = []
+    sweep_data = {}
 
     for sub_name in subsets:
         family = SUBSET_REGISTRY[sub_name]["family"]
         is_nominal = sub_name in NOMINAL_SUBSETS
         paper_auc, paper_ap, paper_time = PAPER_RESULTS[sub_name]
 
-        # Load data (extracts X_tem based on criteria)
         _, y, X_tem = load_subset(sub_name, validate=False)
         mat_file = SUBSET_REGISTRY[sub_name]["mat_file"]
-        # Use raw unscaled matrix directly from mat file according to authors' paper specification
         mat_path = PROJECT_ROOT / "baseline" / "datasets" / mat_file
         data_raw = scipy.io.loadmat(str(mat_path))["trandata"][:, :-1].astype(float)
 
         if is_nominal:
-            # Single run with lambda=1.0 (lambda has zero effect since ID is empty)
             t0 = time.perf_counter()
             scores = WNCROD_optimized(data_raw, X_tem, lammda=1.0)
             single_time = time.perf_counter() - t0
@@ -341,7 +342,6 @@ def run_baseline_pipeline():
             print(f"  [{sub_name:4s}] (Nominal) Done in {single_time:.3f}s | AP: {best_ap:.4f} (Paper: {paper_ap:.3f}) | ROC: {best_auc:.4f} (Paper: {paper_auc:.3f})")
 
         else:
-            # Numerical subset: full lambda sweep
             sweep_aucs = []
             sweep_aps = []
             sweep_times = []
@@ -367,16 +367,13 @@ def run_baseline_pipeline():
             time_best_auc = sweep_times[best_idx_auc]
 
             total_sweep_time = sum(sweep_times)
-            # Full search times for AP and ROC are the sweep execution time
             total_search_time_ap = total_sweep_time
             total_search_time_auc = total_sweep_time
 
-            # Generate and save the 2 requested plots
-            generate_subset_plots(sub_name, DEFAULT_LAMBDAS, sweep_aucs, sweep_aps, CHARTS_DIR)
+            sweep_data[sub_name] = {"aps": sweep_aps, "aucs": sweep_aucs}
 
             print(f"  [{sub_name:4s}] (Numeric) Done in {total_sweep_time:.2f}s | Best AP: {best_ap:.4f} (λ={best_lam_ap}, Paper: {paper_ap:.3f}) | Best ROC: {best_auc:.4f} (λ={best_lam_auc}, Paper: {paper_auc:.3f})")
 
-        # Table 1: Performance Comparison
         table1_rows.append({
             "Subset": sub_name,
             "Best_Lambda_AP": str(best_lam_ap),
@@ -387,7 +384,6 @@ def run_baseline_pipeline():
             "Paper_ROC_AUC": float(paper_auc),
         })
 
-        # Table 2: Running Time Comparison
         table2_rows.append({
             "Subset": sub_name,
             "Time_Best_AP_sec": float(time_best_ap),
@@ -396,6 +392,22 @@ def run_baseline_pipeline():
             "Total_Search_Time_ROC_sec": float(total_search_time_auc),
             "Paper_Time_sec": float(paper_time),
         })
+
+    # family-level grouped plots to mirror the paper layout
+    family_groups = {
+        "A": ["A1", "A2", "A3"],
+        "C": ["C1", "C2", "C3"],
+        "G": ["G1", "G2", "G3"],
+        "H": ["H1", "H2", "H3"],
+        "MA": ["MA1", "MA2", "MA3"],
+        "MU": ["MU1", "MU2", "MU3"],
+        "TH": ["TH1", "TH2", "TH3"],
+        "W": ["W1", "W2", "W3"],
+    }
+    for group_name, group_subsets in family_groups.items():
+        if all(sub in sweep_data for sub in group_subsets):
+            generate_group_plots(group_name, group_subsets, sweep_data, CHARTS_DIR)
+            generate_group_roc_plots(group_name, group_subsets, sweep_data, CHARTS_DIR)
 
     # Convert to DataFrames
     df_table1 = pd.DataFrame(table1_rows)
@@ -465,7 +477,7 @@ def run_baseline_pipeline():
     print("\n" + "=" * 90)
     print("✅ All runs completed successfully!")
     print(f"📁 Tables saved to:\n  - {table1_csv_path}\n  - {table2_csv_path}")
-    print(f"📈 48 Charts saved in: {CHARTS_DIR}")
+    print(f"📈 {len(family_groups)} Family charts saved in: {CHARTS_DIR}")
     print("=" * 90)
 
 
