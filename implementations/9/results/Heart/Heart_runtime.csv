@@ -1,4 +1,0 @@
-subset,num_features,total_search_time_sec,avg_time_per_feature_sec
-H1,13,9.89,0.761
-H2,13,10.75,0.827
-H3,13,10.64,0.819

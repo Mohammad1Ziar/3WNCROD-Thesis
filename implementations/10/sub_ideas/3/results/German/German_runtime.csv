@@ -1,4 +1,0 @@
-subset,objects,grid_evaluations,scale_precomp_time_sec,total_grid_time_sec,avg_time_per_eval_sec
-G1,600,330,0.674,11.94,0.0362
-G2,680,330,0.672,13.86,0.042
-G3,594,330,0.704,12.34,0.0374
