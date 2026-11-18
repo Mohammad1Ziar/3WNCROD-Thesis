@@ -137,21 +137,21 @@ py -3 "implementations/3_FeatureWise/Run_featurewise.py"
 
 ### Using the project root entry point
 
-There is a convenience script at `main.py`, which exposes the benchmark targets in the current codebase:
+The project root also provides `main.py` as a convenience launcher:
 
 ```powershell
 py -3 main.py --help
 ```
 
-This supports the main benchmark choices:
+At present, the implementation-specific runners under `implementations/` are the canonical entry points. They write their generated comparison tables and charts to the corresponding folder under `result/`.
 
-- `baseline`
-- `new_idea_1`
-- `new_idea_2`
-- `paper_tables`
-- `all`
+Before a long benchmark run, verify the Python environment and the required packages. Use a virtual environment when the repository is shared across multiple machines:
 
-> Note: the canonical experimental scripts in active use are the files under `implementations/`. Those are the most reliable entry points for the current thesis workflow.
+```powershell
+py -3 -m venv .venv
+.venv\Scripts\activate
+python -m pip install numpy pandas scipy scikit-learn matplotlib
+```
 
 ---
 
