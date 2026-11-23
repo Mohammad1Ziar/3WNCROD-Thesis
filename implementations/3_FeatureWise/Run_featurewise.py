@@ -13,31 +13,11 @@ idea of this thesis):
 
     delta_j = std(c_j) / lambda_j
 
-and searches the vector ``(lambda_1, ..., lambda_m)`` with a greedy coordinate
-ascent: the attributes are visited one after the other, every candidate of the
-grid {0.1, 0.2, ..., 2.0} is tried for the current attribute while the other
-lambdas stay fixed, and the value that maximises the metric (AP or ROC-AUC) is
-kept.  As soon as a metric reaches its maximum value 1.0 the search for that
-metric is stopped -- nothing can be better than 1.
-
-Two starting points
--------------------
-A greedy coordinate ascent is a *local* method, so the starting point matters.
-The search is therefore run from two initial points and the better result is
-kept (multi-start):
-
-* **neutral** -- every ``lambda_j = 1`` (the plain definition of the idea);
-* **global** -- every ``lambda_j`` equal to the best *global* lambda of the
-  paper's own sweep (20 extra algorithm executions per subset).
-
-Measured on the benchmark, each of the two starts wins on some subsets
-(neutral: H3 -> AP 1.0000 against 0.9500, global: W3 -> AP 1.0000 against
-0.8469), so keeping both guarantees that the feature-wise variant is never
-worse than the neutral-start variant.  The global start is tried first
-because on the subsets whose global optimum is already optimal for the
-feature-wise variant (Musk, W1, W2) it reaches 1.0 immediately and the
-neutral start is skipped -- otherwise the 166 attributes of Musk would cost
-166 x 20 x 2 algorithm executions per subset.
+and searches the vector ``(lambda_1, ..., lambda_m)`` with greedy coordinate
+ascent.  The search always starts with every lambda equal to 1, then visits
+each active attribute in order, trying every candidate in {0.1, 0.2, ..., 3.0}
+while keeping the other lambdas fixed.  The best candidate is kept. As soon as
+a metric reaches 1.0, the search for that metric stops.
 
 The algorithm itself is the runtime-optimised 3WNCROD of
 ``implementations/2_Running Time Optimised`` with the per-attribute divisor
@@ -45,20 +25,27 @@ added; it lives in ``wncrod_featurewise.py`` next to this file.
 
 Only two artefacts are written (no plots):
 
-    result/3_FeatureWise/Table1_Performance_Comparison.csv
+    result/3_FeatureWise/Table1_Performance_Comparison_<subsets>.csv
         Subset | Best_Lambda_AP | Best_AP | Paper_AP |
                 Best_Lambda_ROC | Best_ROC_AUC | Paper_ROC_AUC
-    result/3_FeatureWise/Table2_RunningTime_Comparison.csv
+    result/3_FeatureWise/Table2_RunningTime_Comparison_<subsets>.csv
         Subset | Time_Best_AP_sec | Time_Best_ROC_sec |
                 Total_Search_Time_sec | Paper_Time_sec
 
 Both tables end with an "Average" row.
 
-Run it from the project root with:
+Run it from the project root and name one or more main datasets or subsets:
 
-    .venv/bin/python implementations/3_FeatureWise/Run_featurewise.py
+    python implementations\\3_FeatureWise\\Run_featurewise.py A TH2
+    python implementations\\3_FeatureWise\\Run_featurewise.py ALL
+
+Main dataset codes (A, C, G, H, L, MA, M, MU, TH, W) expand to their three
+subsets. ``ALL`` runs all 30 subsets. The output tables always include all
+subsets and the fixed paper results; unselected algorithm-result cells remain
+blank. Filenames identify the selected subsets, so previous tables are kept.
 """
 
+import argparse
 import importlib.util
 import sys
 import time
@@ -93,8 +80,8 @@ BASE_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 # ---------------------------------------------------------------------------
 # benchmark constants
 # ---------------------------------------------------------------------------
-# candidate values of every single lambda (same grid as the paper)
-DEFAULT_LAMBDAS = [round(x, 1) for x in np.arange(0.1, 2.05, 0.1)]
+# Search each feature over the extended 0.1–3.0 grid used by this experiment.
+DEFAULT_LAMBDAS = [round(x, 1) for x in np.arange(0.1, 3.05, 0.1)]
 
 # Official Paper (Table 6, Table 7, Table 8) results: (Paper_ROC, Paper_AP, Paper_Time)
 PAPER_RESULTS = {
@@ -130,10 +117,42 @@ PAPER_RESULTS = {
     "W3":  (0.995, 0.921, 0.061),
 }
 
+DATASET_GROUPS = {
+    "A": ("A1", "A2", "A3"),
+    "C": ("C1", "C2", "C3"),
+    "G": ("G1", "G2", "G3"),
+    "H": ("H1", "H2", "H3"),
+    "L": ("L1", "L2", "L3"),
+    "MA": ("MA1", "MA2", "MA3"),
+    "M": ("M1", "M2", "M3"),
+    "MU": ("MU1", "MU2", "MU3"),
+    "TH": ("TH1", "TH2", "TH3"),
+    "W": ("W1", "W2", "W3"),
+}
+
 
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
+def expand_dataset_arguments(dataset_arguments: list[str]) -> list[str]:
+    """Expand main dataset codes into subsets, preserving order and uniqueness."""
+    all_subsets = [subset for group in DATASET_GROUPS.values() for subset in group]
+    expanded = []
+    seen = set()
+
+    for name in dataset_arguments:
+        if name == "ALL":
+            subsets = all_subsets
+        else:
+            subsets = DATASET_GROUPS.get(name, (name,))
+        for subset in subsets:
+            if subset not in seen:
+                expanded.append(subset)
+                seen.add(subset)
+
+    return expanded
+
+
 def active_attributes(data: np.ndarray) -> np.ndarray:
     """Indices of the attributes whose radius really depends on lambda.
 
@@ -160,33 +179,14 @@ def timed_run(data: np.ndarray, X_tem: np.ndarray, lam_vec: np.ndarray):
     return scores, time.perf_counter() - t0
 
 
-def global_lambda_sweep(data, X_tem, y, candidates):
-    """Classical sweep of the paper: one *global* lambda for every attribute.
-
-    Returns the AP and the ROC-AUC of every candidate lambda together with
-    the elapsed time of the sweep.  The best global lambda of each metric is
-    used as a starting point of the feature-wise search.
-    """
-    m = data.shape[1]
-    aps, rocs = [], []
-    t0 = time.perf_counter()
-    for lam in candidates:
-        scores = WNCROD_featurewise(data, X_tem, np.full(m, lam))
-        metrics = evaluate_predictions(y_true=y, scores=scores, X_tem=X_tem)
-        aps.append(metrics["ap"])
-        rocs.append(metrics["auroc"])
-    return aps, rocs, time.perf_counter() - t0
-
-
 def greedy_lambda_search(data, X_tem, y, candidates, metric_key, active,
-                         subset_name, metric_label, start_vec=None):
+                         subset_name, metric_label):
     """Greedy coordinate ascent over one lambda per numerical attribute.
 
-    The search starts from ``start_vec`` (by default the neutral vector
-    ``lambda_j = 1``) and visits the attributes one after the other.  For the
-    current attribute every candidate of ``candidates`` is evaluated while the
-    other lambdas stay fixed; the best candidate is kept.  The search for the
-    given metric stops as soon as the metric reaches 1.0, its maximum value.
+    The search always starts from the neutral vector ``lambda_j = 1`` and
+    visits the attributes one after the other. For the current attribute every
+    candidate is evaluated while the other lambdas stay fixed; the best
+    candidate is kept. The search stops once the metric reaches 1.0.
 
     Returns
     -------
@@ -195,7 +195,7 @@ def greedy_lambda_search(data, X_tem, y, candidates, metric_key, active,
     n_runs     : int            number of algorithm executions of this search
     """
     m = data.shape[1]
-    lam_vec = np.ones(m, dtype=float) if start_vec is None else np.array(start_vec, dtype=float)
+    lam_vec = np.ones(m, dtype=float)
     counter = {"runs": 0}
 
     def evaluate(vec):
@@ -230,51 +230,6 @@ def greedy_lambda_search(data, X_tem, y, candidates, metric_key, active,
     return lam_vec, best_value, counter["runs"]
 
 
-def multi_start_search(data, X_tem, y, candidates, metric_key, active,
-                       subset_name, metric_label, warm_start):
-    """Feature-wise search started from two initial points; the better wins.
-
-    The greedy coordinate ascent is a local method: two different starting
-    points can lead to two different local optima.  Measured on the benchmark
-    subsets, starting from the neutral vector ``lambda = 1`` is better on some
-    subsets (e.g. H3: AP 1.0000 against 0.9500) while starting from the best
-    *global* lambda of the paper is better on others (e.g. W3: AP 1.0000
-    against 0.8469).  Both starting points are therefore searched and the
-    better result is kept, so the feature-wise variant can never be worse
-    than the neutral-start variant.
-
-    The global start is tried first: on the subsets whose global optimum is
-    already optimal for the feature-wise variant (Musk, W1, W2, ...) it
-    reaches the maximum 1.0 immediately and the neutral start is skipped
-    altogether -- without that shortcut the 166 attributes of Musk would cost
-    166 x 20 x 2 algorithm executions per subset.
-
-    Returns
-    -------
-    lam_vec    : (m,) float64   the best lambda vector found
-    best_value : float          the value of the metric at that vector
-    n_runs     : int            number of algorithm executions of this search
-    origin     : str            "global" or "neutral" (which start won)
-    """
-    warm_vec, warm_value, warm_runs = greedy_lambda_search(
-        data, X_tem, y, candidates, metric_key, active, subset_name,
-        metric_label, start_vec=warm_start)
-
-    if warm_value >= 1.0:
-        # the maximum of the metric is reached -- nothing can beat it
-        return warm_vec, warm_value, warm_runs, "global"
-
-    cold_vec, cold_value, cold_runs = greedy_lambda_search(
-        data, X_tem, y, candidates, metric_key, active, subset_name,
-        metric_label, start_vec=None)
-
-    if cold_value >= 1.0:
-        return cold_vec, cold_value, cold_runs + warm_runs, "neutral"
-    if cold_value > warm_value:
-        return cold_vec, cold_value, cold_runs + warm_runs, "neutral"
-    return warm_vec, warm_value, cold_runs + warm_runs, "global"
-
-
 def format_lambda_vector(vec, max_items=None) -> str:
     """Compact textual form of a lambda vector, e.g. ``[1.8,1.0,0.9]``."""
     if vec is None:
@@ -288,23 +243,52 @@ def format_lambda_vector(vec, max_items=None) -> str:
 # ---------------------------------------------------------------------------
 # main pipeline
 # ---------------------------------------------------------------------------
-def run_featurewise_pipeline():
+def run_featurewise_pipeline(dataset_names: list[str]) -> None:
+    if not dataset_names:
+        raise ValueError("Provide at least one subset name.")
+    unknown = sorted(set(dataset_names) - PAPER_RESULTS.keys())
+    if unknown:
+        raise ValueError(f"Unknown subset(s): {', '.join(unknown)}")
+    if len(set(dataset_names)) != len(dataset_names):
+        raise ValueError("Subset names must not be repeated.")
+
     print("=" * 95)
-    print("🚀 Running 3WNCROD+ FeatureWise (independent lambda per attribute) on all 30 subsets")
-    print(f"📁 Output Directory: {BASE_RESULTS_DIR}")
-    print(f"📊 Lambda grid per attribute: {len(DEFAULT_LAMBDAS)} candidates "
+    print("Running 3WNCROD+ FeatureWise (independent lambda per attribute)")
+    print(f"Selected subsets: {', '.join(dataset_names)}")
+    print(f"Output directory: {BASE_RESULTS_DIR}")
+    print(f"Lambda grid per attribute: {len(DEFAULT_LAMBDAS)} candidates "
           f"({DEFAULT_LAMBDAS[0]} ... {DEFAULT_LAMBDAS[-1]})")
-    print("⏹️  Search of a metric stops as soon as the metric reaches 1.0")
-    print("🔀 Per metric the search runs from two starts (neutral lambda=1 and the best")
-    print("   global lambda of the paper); the better result is kept.")
+    print("Search of a metric stops as soon as the metric reaches 1.0")
+    print("Each metric's search starts with every lambda equal to 1.")
+    print("All 30 subsets will appear in the tables; unselected run results stay blank.")
     print("=" * 95)
 
     table1_rows = []
     table2_rows = []
+    selected_subsets = set(dataset_names)
 
-    for sub_name in PAPER_RESULTS.keys():
+    for sub_name in PAPER_RESULTS:
         paper_auc, paper_ap, paper_time = PAPER_RESULTS[sub_name]
-        print(f"\n  ▶ [{sub_name}] loading data ...", flush=True)
+        if sub_name not in selected_subsets:
+            table1_rows.append({
+                "Subset": sub_name,
+                "Best_Lambda_AP": "",
+                "Best_AP": float("nan"),
+                "Paper_AP": float(paper_ap),
+                "Best_Lambda_ROC": "",
+                "Best_ROC_AUC": float("nan"),
+                "Paper_ROC_AUC": float(paper_auc),
+            })
+            table2_rows.append({
+                "Subset": sub_name,
+                "Time_Best_AP_sec": float("nan"),
+                "Time_Best_ROC_sec": float("nan"),
+                "Total_Search_Time_sec": float("nan"),
+                "Paper_Time_sec": float(paper_time),
+            })
+            continue
+
+        print(f"\n  > [{sub_name}] loading data ...", flush=True)
 
         try:
             # ---- data ------------------------------------------------------
@@ -326,49 +310,37 @@ def run_featurewise_pipeline():
                 n_runs = 1
                 note = "lambda-independent (no numerical attribute)"
             else:
-                # ---- (1) global sweep of the paper (one lambda for all) ----
+                # ---- coordinate search from the neutral all-ones vector ----
                 t_search = time.perf_counter()
-                sweep_aps, sweep_rocs, t_sweep = global_lambda_sweep(
-                    data_raw, X_tem, y, DEFAULT_LAMBDAS)
-                idx_ap = int(np.argmax(sweep_aps))
-                idx_roc = int(np.argmax(sweep_rocs))
-                lam_global_ap = DEFAULT_LAMBDAS[idx_ap]
-                lam_global_roc = DEFAULT_LAMBDAS[idx_roc]
-                print(f"      global sweep ({t_sweep:.2f}s): best AP  = {sweep_aps[idx_ap]:.4f} "
-                      f"(lambda={lam_global_ap}, paper {paper_ap:.3f}) | "
-                      f"best ROC = {sweep_rocs[idx_roc]:.4f} "
-                      f"(lambda={lam_global_roc}, paper {paper_auc:.3f})", flush=True)
-
-                # ---- (2) feature-wise search, one metric at a time ------------
-                lam_ap, val_ap, runs_ap, org_ap = multi_start_search(
+                lam_ap, val_ap, runs_ap = greedy_lambda_search(
                     data_raw, X_tem, y, DEFAULT_LAMBDAS, "ap", active,
-                    sub_name, "AP", warm_start=np.full(data_raw.shape[1], lam_global_ap))
-                lam_roc, val_roc, runs_roc, org_roc = multi_start_search(
+                    sub_name, "AP")
+                lam_roc, val_roc, runs_roc = greedy_lambda_search(
                     data_raw, X_tem, y, DEFAULT_LAMBDAS, "auroc", active,
-                    sub_name, "ROC", warm_start=np.full(data_raw.shape[1], lam_global_roc))
+                    sub_name, "ROC")
 
                 # ---- (3) final timed executions with the two optimal vectors --
                 scores_ap, time_best_ap = timed_run(data_raw, X_tem, lam_ap)
                 scores_roc, time_best_roc = timed_run(data_raw, X_tem, lam_roc)
 
                 total_search_time = time.perf_counter() - t_search
-                n_runs = len(DEFAULT_LAMBDAS) + runs_ap + runs_roc + 2
+                n_runs = runs_ap + runs_roc + 2
 
                 metrics_ap = evaluate_predictions(y_true=y, scores=scores_ap, X_tem=X_tem)
                 metrics_roc = evaluate_predictions(y_true=y, scores=scores_roc, X_tem=X_tem)
                 best_ap, best_auc = metrics_ap["ap"], metrics_roc["auroc"]
                 best_lam_ap = format_lambda_vector(lam_ap)
                 best_lam_auc = format_lambda_vector(lam_roc)
-                note = (f"{len(active)} numerical attribute(s) tuned, {n_runs} runs "
-                        f"(start: AP={org_ap}, ROC={org_roc})")
+                note = (f"{len(active)} numerical attribute(s) tuned from lambda=1, "
+                        f"{n_runs} runs")
 
-            print(f"  ✔ [{sub_name}] {note}")
+            print(f"  OK [{sub_name}] {note}")
             print(f"      Best AP  = {best_ap:.4f} (Paper: {paper_ap:.3f})  "
                   f"| Best ROC = {best_auc:.4f} (Paper: {paper_auc:.3f})  "
                   f"| search {total_search_time:.2f}s")
 
         except Exception as exc:                                   # keep going
-            print(f"  ✘ [{sub_name}] FAILED: {type(exc).__name__}: {exc}")
+            print(f"  FAILED [{sub_name}]: {type(exc).__name__}: {exc}")
             best_ap = best_auc = float("nan")
             best_lam_ap = best_lam_auc = "-"
             time_best_ap = time_best_roc = total_search_time = float("nan")
@@ -401,10 +373,10 @@ def run_featurewise_pipeline():
 
     avg_row_t1 = pd.DataFrame([{
         "Subset": "Average",
-        "Best_Lambda_AP": "-",
+        "Best_Lambda_AP": "",
         "Best_AP": df_table1["Best_AP"].mean(),
         "Paper_AP": df_table1["Paper_AP"].mean(),
-        "Best_Lambda_ROC": "-",
+        "Best_Lambda_ROC": "",
         "Best_ROC_AUC": df_table1["Best_ROC_AUC"].mean(),
         "Paper_ROC_AUC": df_table1["Paper_ROC_AUC"].mean(),
     }])
@@ -419,47 +391,59 @@ def run_featurewise_pipeline():
     }])
     df_table2_final = pd.concat([df_table2, avg_row_t2], ignore_index=True)
 
-    table1_csv_path = BASE_RESULTS_DIR / "Table1_Performance_Comparison.csv"
-    table2_csv_path = BASE_RESULTS_DIR / "Table2_RunningTime_Comparison.csv"
+    output_suffix = "_".join(dataset_names)
+    table1_csv_path = BASE_RESULTS_DIR / f"Table1_Performance_Comparison_{output_suffix}.csv"
+    table2_csv_path = BASE_RESULTS_DIR / f"Table2_RunningTime_Comparison_{output_suffix}.csv"
 
     df_table1_export = df_table1_final.copy()
     for col in ["Best_AP", "Paper_AP", "Best_ROC_AUC", "Paper_ROC_AUC"]:
         df_table1_export[col] = df_table1_export[col].apply(
-            lambda v: f"{v:.3f}" if pd.notnull(v) else "-")
+            lambda v: f"{v:.3f}" if pd.notnull(v) else "")
 
     df_table2_export = df_table2_final.copy()
     for col in ["Time_Best_AP_sec", "Time_Best_ROC_sec",
                 "Total_Search_Time_sec", "Paper_Time_sec"]:
         df_table2_export[col] = df_table2_export[col].apply(
-            lambda v: f"{v:.4f}" if pd.notnull(v) else "-")
+            lambda v: f"{v:.4f}" if pd.notnull(v) else "")
 
-    df_table1_export.to_csv(table1_csv_path, index=False)
-    df_table2_export.to_csv(table2_csv_path, index=False)
+    df_table1_export.to_csv(table1_csv_path, index=False, na_rep="")
+    df_table2_export.to_csv(table2_csv_path, index=False, na_rep="")
 
     # ---- console report (lambda vectors shortened for readability) ---------
     shown_t1 = df_table1_export.copy()
     for col in ["Best_Lambda_AP", "Best_Lambda_ROC"]:
         shown_t1[col] = shown_t1[col].apply(
-            lambda v: v if v == "-" else format_lambda_vector(
+            lambda v: v if not v or v == "-" else format_lambda_vector(
                 [float(x) for x in v.strip("[]").split(",")], max_items=8))
 
     print("\n" + "=" * 95)
-    print("📊 TABLE 1: PERFORMANCE COMPARISON (3WNCROD+ FeatureWise)")
+    print("TABLE 1: PERFORMANCE COMPARISON (3WNCROD+ FeatureWise)")
     print("=" * 95)
     print(shown_t1.to_string(index=False))
 
     print("\n" + "=" * 95)
-    print("⏱️ TABLE 2: RUNNING TIME COMPARISON (Seconds)")
+    print("TABLE 2: RUNNING TIME COMPARISON (Seconds)")
     print("=" * 95)
     print(df_table2_export.to_string(index=False))
 
     print("\n" + "=" * 95)
-    print("✅ FeatureWise run completed!")
-    print(f"📁 Tables saved to:\n  - {table1_csv_path}\n  - {table2_csv_path}")
+    print("FeatureWise run completed.")
+    print(f"Tables saved to:\n  - {table1_csv_path}\n  - {table2_csv_path}")
     print("   (the CSV files hold the complete lambda vector of every subset;")
     print("    the console print above shortens it to the first 8 values)")
     print("=" * 95)
 
 
 if __name__ == "__main__":
-    run_featurewise_pipeline()
+    parser = argparse.ArgumentParser(
+        description="Run the FeatureWise lambda search on selected benchmark subsets."
+    )
+    parser.add_argument(
+        "datasets",
+        nargs="+",
+        type=str.upper,
+        choices=sorted(set(PAPER_RESULTS) | set(DATASET_GROUPS) | {"ALL"}),
+        metavar="DATASET",
+        help="Main dataset codes, subset names, or ALL; for example A TH2.",
+    )
+    run_featurewise_pipeline(expand_dataset_arguments(parser.parse_args().datasets))
