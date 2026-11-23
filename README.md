@@ -173,6 +173,7 @@ CSV files are omitted so that every row represents one benchmark subset.
 | WDBC (W1) | 1.000 / 1.000 | 1.000 / 1.000 | 1 / 1 | 1 / 1 | 1 / 1 |
 | WDBC (W2) | 1.000 / 1.000 | 1.000 / 1.000 | 1 / 1 | 1 / 1 | 1 / 1 |
 | WDBC (W3) | 0.921 / 0.995 | 0.921 / 0.995 | 0.979 / 0.996 | 0.979 / 1 | 1 / 1 |
+| **Average** | **0.756 / 0.948** | **0.756 / 0.948** | **0.819 / 0.966** | **0.833 / 0.972** | **0.826 / 0.971** |
 
 The user-supplied lambda runner writes per-run summaries under
 `implementations/3_FeatureWise/custom_results/`. Because its inputs are chosen
