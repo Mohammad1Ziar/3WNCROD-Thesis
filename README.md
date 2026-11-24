@@ -50,16 +50,21 @@ The main objective is to study and compare anomaly-detection performance for ben
 │   │   └── ...
 │   ├── 4_FeatureWise2/
 │   │   └── Run_multipass_featurewise.py
-│   └── 5_FeatureWise3/
-│       ├── Run_featurewise3.py
-│       └── wncrod_featurewise3.py
+│   ├── 5_FeatureWise3/
+│   │   ├── Run_featurewise3.py
+│   │   └── wncrod_featurewise3.py
+│   └── 6_Optimization1/
+│       ├── Run_optuna.py
+│       └── wncrod_optuna.py
 ├── Idea's/
 │   └── 1_featurewise_search_strategies.md
 ├── result/
 │   ├── 1_reproduction/
 │   ├── 2_Running Time Optimised/
 │   ├── 3_FeatureWise/
-│   └── 4_FeatureWise2/
+│   ├── 4_FeatureWise2/
+│   ├── 5_FeatureWise3/
+│   └── 6_Optimization1/
 └── .gitignore
 ```
 
@@ -119,6 +124,10 @@ Available folders:
 5. `implementations/5_FeatureWise3`
    - multi-pass feature-wise search with convergence and perfect-score stopping
 
+6. `implementations/6_Optimization1`
+   - Bayesian optimization of the feature-wise lambda vector using Optuna's TPE sampler
+   - joint search over lambda values in [0.1, 3.0], warm-started from all ones, with early stopping at a perfect score
+
 ### result/
 
 Contains generated outputs from the experiments, including:
@@ -135,45 +144,47 @@ The table below reports the recorded Average Precision (AP) and ROC-AUC for all
 time, lambda vectors, and paper-reference values are intentionally omitted.
 The values are transcribed from the corresponding performance CSVs in `result/`.
 The reproduction and runtime-optimized runs have identical recorded scores, but
-are shown separately because they are distinct implementations.
+are shown separately because they are distinct implementations. The two
+Optimization1 columns show the recorded 100-trial and 200-trial runs
+(seed 42, lambda step 0.1), respectively.
 
 `FeatureWise2 P5` and `FeatureWise3 P4` report the corresponding saved pass
-outputs; the intermediate pass columns are omitted here. Average rows from the
-CSV files are omitted so that every row represents one benchmark subset.
+outputs; the intermediate pass columns are omitted here. The final row reports
+the average scores recorded in each performance CSV.
 
-| Dataset | Reproduction | Optimized | FeatureWise | FeatureWise2 P5 | FeatureWise3 P4 |
-|---|---:|---:|---:|---:|---:|
-| Annthyroid (A1) | 0.437 / 0.732 | 0.437 / 0.732 | 0.694 / 0.892 | 0.694 / 0.892 | 0.694 / 0.892 |
-| Annthyroid (A2) | 0.427 / 0.692 | 0.427 / 0.692 | 0.633 / 0.881 | 0.727 / 0.881 | 0.722 / 0.88 |
-| Annthyroid (A3) | 0.278 / 0.775 | 0.278 / 0.775 | 0.359 / 0.817 | 0.382 / 0.876 | 0.421 / 0.876 |
-| CreditA (C1) | 0.800 / 0.990 | 0.800 / 0.990 | 0.903 / 0.996 | 0.903 / 0.997 | 0.891 / 0.996 |
-| CreditA (C2) | 0.993 / 0.999 | 0.993 / 0.999 | 0.993 / 1 | 0.993 / 1 | 0.996 / 1 |
-| CreditA (C3) | 0.978 / 0.997 | 0.978 / 0.997 | 0.98 / 0.998 | 0.98 / 0.998 | 0.982 / 0.998 |
-| German (G1) | 0.561 / 0.987 | 0.561 / 0.987 | 0.57 / 0.989 | 0.604 / 0.991 | 0.607 / 0.991 |
-| German (G2) | 0.543 / 0.986 | 0.543 / 0.986 | 0.619 / 0.99 | 0.619 / 0.99 | 0.582 / 0.991 |
-| German (G3) | 0.501 / 0.996 | 0.501 / 0.996 | 0.715 / 0.998 | 0.799 / 0.998 | 0.679 / 0.998 |
-| Heart (H1) | 0.931 / 0.990 | 0.931 / 0.990 | 0.986 / 0.999 | 0.986 / 0.999 | 0.975 / 0.997 |
-| Heart (H2) | 0.973 / 0.998 | 0.973 / 0.998 | 0.991 / 0.999 | 0.991 / 0.999 | 1 / 1 |
-| Heart (H3) | 0.817 / 0.988 | 0.817 / 0.988 | 1 / 1 | 1 / 1 | 0.861 / 0.994 |
-| Lymphography (L1) | 1.000 / 1.000 | 1.000 / 1.000 | 1 / 1 | 1 / 1 | 1 / 1 |
-| Lymphography (L2) | 1.000 / 1.000 | 1.000 / 1.000 | 1 / 1 | 1 / 1 | 1 / 1 |
-| Lymphography (L3) | 1.000 / 1.000 | 1.000 / 1.000 | 1 / 1 | 1 / 1 | 1 / 1 |
-| Mammography (MA1) | 0.355 / 0.893 | 0.355 / 0.893 | 0.565 / 0.919 | 0.565 / 0.926 | 0.565 / 0.926 |
-| Mammography (MA2) | 0.072 / 0.774 | 0.072 / 0.774 | 0.136 / 0.832 | 0.138 / 0.836 | 0.175 / 0.827 |
-| Mammography (MA3) | 0.187 / 0.788 | 0.187 / 0.788 | 0.342 / 0.781 | 0.445 / 0.877 | 0.448 / 0.877 |
-| Mushroom (M1) | 0.920 / 0.985 | 0.920 / 0.985 | 0.92 / 0.985 | 0.92 / 0.985 | 0.92 / 0.985 |
-| Mushroom (M2) | 0.898 / 0.940 | 0.898 / 0.940 | 0.898 / 0.94 | 0.898 / 0.94 | 0.898 / 0.94 |
-| Mushroom (M3) | 0.753 / 0.979 | 0.753 / 0.979 | 0.753 / 0.979 | 0.753 / 0.979 | 0.753 / 0.979 |
-| Musk (MU1) | 1.000 / 1.000 | 1.000 / 1.000 | 1 / 1 | 1 / 1 | 1 / 1 |
-| Musk (MU2) | 1.000 / 1.000 | 1.000 / 1.000 | 1 / 1 | 1 / 1 | 1 / 1 |
-| Musk (MU3) | 1.000 / 1.000 | 1.000 / 1.000 | 1 / 1 | 1 / 1 | 1 / 1 |
-| Thyroid (TH1) | 0.716 / 0.985 | 0.716 / 0.985 | 0.798 / 0.991 | 0.8 / 0.991 | 0.8 / 0.991 |
-| Thyroid (TH2) | 0.761 / 0.985 | 0.761 / 0.985 | 0.851 / 0.995 | 0.929 / 0.997 | 0.94 / 0.996 |
-| Thyroid (TH3) | 0.852 / 0.992 | 0.852 / 0.992 | 0.882 / 0.996 | 0.897 / 0.996 | 0.884 / 0.996 |
-| WDBC (W1) | 1.000 / 1.000 | 1.000 / 1.000 | 1 / 1 | 1 / 1 | 1 / 1 |
-| WDBC (W2) | 1.000 / 1.000 | 1.000 / 1.000 | 1 / 1 | 1 / 1 | 1 / 1 |
-| WDBC (W3) | 0.921 / 0.995 | 0.921 / 0.995 | 0.979 / 0.996 | 0.979 / 1 | 1 / 1 |
-| **Average** | **0.756 / 0.948** | **0.756 / 0.948** | **0.819 / 0.966** | **0.833 / 0.972** | **0.826 / 0.971** |
+| Dataset | Reproduction | Optimized | FeatureWise | FeatureWise2 P5 | FeatureWise3 P4 | Optimization1 (100 trials) | Optimization1 (200 trials) |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Annthyroid (A1) | 0.437 / 0.732 | 0.437 / 0.732 | 0.694 / 0.892 | 0.694 / 0.892 | 0.694 / 0.892 | 0.589 / 0.882 | 0.598 / 0.882 |
+| Annthyroid (A2) | 0.427 / 0.692 | 0.427 / 0.692 | 0.633 / 0.881 | 0.727 / 0.881 | 0.722 / 0.88 | 0.699 / 0.877 | 0.701 / 0.878 |
+| Annthyroid (A3) | 0.278 / 0.775 | 0.278 / 0.775 | 0.359 / 0.817 | 0.382 / 0.876 | 0.421 / 0.876 | 0.381 / 0.789 | 0.383 / 0.802 |
+| CreditA (C1) | 0.800 / 0.990 | 0.800 / 0.990 | 0.903 / 0.996 | 0.903 / 0.997 | 0.891 / 0.996 | 0.831 / 0.996 | 0.851 / 0.996 |
+| CreditA (C2) | 0.993 / 0.999 | 0.993 / 0.999 | 0.993 / 1 | 0.993 / 1 | 0.996 / 1 | 0.996 / 0.999 | 0.996 / 0.999 |
+| CreditA (C3) | 0.978 / 0.997 | 0.978 / 0.997 | 0.98 / 0.998 | 0.98 / 0.998 | 0.982 / 0.998 | 0.981 / 0.998 | 0.982 / 0.998 |
+| German (G1) | 0.561 / 0.987 | 0.561 / 0.987 | 0.57 / 0.989 | 0.604 / 0.991 | 0.607 / 0.991 | 0.589 / 0.99 | 0.604 / 0.99 |
+| German (G2) | 0.543 / 0.986 | 0.543 / 0.986 | 0.619 / 0.99 | 0.619 / 0.99 | 0.582 / 0.991 | 0.586 / 0.989 | 0.589 / 0.99 |
+| German (G3) | 0.501 / 0.996 | 0.501 / 0.996 | 0.715 / 0.998 | 0.799 / 0.998 | 0.679 / 0.998 | 0.761 / 0.998 | 0.768 / 0.998 |
+| Heart (H1) | 0.931 / 0.990 | 0.931 / 0.990 | 0.986 / 0.999 | 0.986 / 0.999 | 0.975 / 0.997 | 0.946 / 0.997 | 0.966 / 1 |
+| Heart (H2) | 0.973 / 0.998 | 0.973 / 0.998 | 0.991 / 0.999 | 0.991 / 0.999 | 1 / 1 | 1 / 0.999 | 1 / 1 |
+| Heart (H3) | 0.817 / 0.988 | 0.817 / 0.988 | 1 / 1 | 1 / 1 | 0.861 / 0.994 | 1 / 0.996 | 1 / 0.998 |
+| Lymphography (L1) | 1.000 / 1.000 | 1.000 / 1.000 | 1 / 1 | 1 / 1 | 1 / 1 | 1 / 1 | 1 / 1 |
+| Lymphography (L2) | 1.000 / 1.000 | 1.000 / 1.000 | 1 / 1 | 1 / 1 | 1 / 1 | 1 / 1 | 1 / 1 |
+| Lymphography (L3) | 1.000 / 1.000 | 1.000 / 1.000 | 1 / 1 | 1 / 1 | 1 / 1 | 1 / 1 | 1 / 1 |
+| Mammography (MA1) | 0.355 / 0.893 | 0.355 / 0.893 | 0.565 / 0.919 | 0.565 / 0.926 | 0.565 / 0.926 | 0.417 / 0.905 | 0.446 / 0.917 |
+| Mammography (MA2) | 0.072 / 0.774 | 0.072 / 0.774 | 0.136 / 0.832 | 0.138 / 0.836 | 0.175 / 0.827 | 0.125 / 0.794 | 0.132 / 0.799 |
+| Mammography (MA3) | 0.187 / 0.788 | 0.187 / 0.788 | 0.342 / 0.781 | 0.445 / 0.877 | 0.448 / 0.877 | 0.39 / 0.833 | 0.42 / 0.842 |
+| Mushroom (M1) | 0.920 / 0.985 | 0.920 / 0.985 | 0.92 / 0.985 | 0.92 / 0.985 | 0.92 / 0.985 | 0.92 / 0.985 | 0.92 / 0.985 |
+| Mushroom (M2) | 0.898 / 0.940 | 0.898 / 0.940 | 0.898 / 0.94 | 0.898 / 0.94 | 0.898 / 0.94 | 0.898 / 0.94 | 0.898 / 0.94 |
+| Mushroom (M3) | 0.753 / 0.979 | 0.753 / 0.979 | 0.753 / 0.979 | 0.753 / 0.979 | 0.753 / 0.979 | 0.753 / 0.979 | 0.753 / 0.979 |
+| Musk (MU1) | 1.000 / 1.000 | 1.000 / 1.000 | 1 / 1 | 1 / 1 | 1 / 1 | 1 / 1 | 1 / 1 |
+| Musk (MU2) | 1.000 / 1.000 | 1.000 / 1.000 | 1 / 1 | 1 / 1 | 1 / 1 | 1 / 1 | 1 / 1 |
+| Musk (MU3) | 1.000 / 1.000 | 1.000 / 1.000 | 1 / 1 | 1 / 1 | 1 / 1 | 1 / 1 | 1 / 1 |
+| Thyroid (TH1) | 0.716 / 0.985 | 0.716 / 0.985 | 0.798 / 0.991 | 0.8 / 0.991 | 0.8 / 0.991 | 0.799 / 0.991 | 0.799 / 0.991 |
+| Thyroid (TH2) | 0.761 / 0.985 | 0.761 / 0.985 | 0.851 / 0.995 | 0.929 / 0.997 | 0.94 / 0.996 | 0.894 / 0.995 | 0.895 / 0.996 |
+| Thyroid (TH3) | 0.852 / 0.992 | 0.852 / 0.992 | 0.882 / 0.996 | 0.897 / 0.996 | 0.884 / 0.996 | 0.873 / 0.995 | 0.873 / 0.996 |
+| WDBC (W1) | 1.000 / 1.000 | 1.000 / 1.000 | 1 / 1 | 1 / 1 | 1 / 1 | 1 / 1 | 1 / 1 |
+| WDBC (W2) | 1.000 / 1.000 | 1.000 / 1.000 | 1 / 1 | 1 / 1 | 1 / 1 | 1 / 1 | 1 / 1 |
+| WDBC (W3) | 0.921 / 0.995 | 0.921 / 0.995 | 0.979 / 0.996 | 0.979 / 1 | 1 / 1 | 0.979 / 0.999 | 0.979 / 0.999 |
+| **Average** | **0.756 / 0.948** | **0.756 / 0.948** | **0.819 / 0.966** | **0.833 / 0.972** | **0.826 / 0.971** | **0.814 / 0.964** | **0.818 / 0.966** |
 
 The user-supplied lambda runner writes per-run summaries under
 `implementations/3_FeatureWise/custom_results/`. Because its inputs are chosen
