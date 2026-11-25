@@ -41,10 +41,10 @@ import scipy.io
 # CONFIGURATION: Key Hyperparameters
 # ---------------------------------------------------------------------------
 # Default maximum function evaluations per metric search (AP / ROC-AUC)
-DEFAULT_MAXFEVALS = 100
+DEFAULT_MAXFEVALS = 400
 
 # Initial standard deviation (step size). Since bounds are [0.1, 3.0], 0.5 covers ~1/3 of range.
-DEFAULT_SIGMA0 = 0.5
+DEFAULT_SIGMA0 = 0.3
 
 # Lambda search bounds and discretization step
 # Set LAMBDA_STEP to 0.1 to match earlier benchmark grids (0.1, 0.2, ..., 3.0).

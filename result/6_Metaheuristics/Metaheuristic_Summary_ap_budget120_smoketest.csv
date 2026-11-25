@@ -1,0 +1,6 @@
+Method,mean_best,mean_snapped,mean_evals,mean_seconds,runs
+GreedyCD,1.0,1.0,89.0,1.039,1
+CMA-ES,0.9909,0.9909,119.0,1.363,1
+HybridCMA-ES_CD,0.9909,0.9909,120.0,2.264,1
+HybridDE_CD,0.9909,0.9909,120.0,1.779,1
+DE,0.9833,0.9833,120.0,1.493,1
